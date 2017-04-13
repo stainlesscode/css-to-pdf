@@ -232,6 +232,86 @@
     , base64ToArr: base64ToBuffer
     };
 
+    // Blob construction for download
+    function base64toBlob(base64Data, contentType, sliceSize) {
+        var byteCharacters,
+            byteArray,
+            byteNumbers,
+            blobData,
+            blob;
+        contentType = contentType || '';
+        byteCharacters = atob(base64Data);
+        // Get blob data sliced or not
+        blobData = sliceSize ? getBlobDataSliced() : getBlobDataAtOnce();
+        blob = new Blob(blobData, { type: contentType });
+        return blob;
+        /*
+         * Get blob data in one slice.
+         * => Fast in IE on new Blob(...)
+         */
+        function getBlobDataAtOnce() {
+            byteNumbers = new Array(byteCharacters.length);
+            for (var i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            byteArray = new Uint8Array(byteNumbers);
+            return [byteArray];
+        }
+        /*
+         * Get blob data in multiple slices.
+         * => Slow in IE on new Blob(...)
+         */
+        function getBlobDataSliced() {
+            var slice,
+                byteArrays = [];
+            for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                slice = byteCharacters.slice(offset, offset + sliceSize);
+                byteNumbers = new Array(slice.length);
+                for (var i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                byteArray = new Uint8Array(byteNumbers);
+                // Add slice
+                byteArrays.push(byteArray);
+            }
+            return byteArrays;
+        }
+    };
+
+            function saver(url, winMode, fileName, defaultMime){
+                var anchor = document.createElement("a");
+                if ('download' in anchor) { //html5 A[download]
+                    anchor.href = url;
+                    anchor.setAttribute("download", fileName);
+                    anchor.className = "download-js-link";
+                    anchor.innerHTML = "downloading...";
+                    anchor.style.display = "none";
+                    document.body.appendChild(anchor);
+                    setTimeout(function() {
+                        anchor.click();
+                        document.body.removeChild(anchor);
+                        if(winMode===true){setTimeout(function(){ self.URL.revokeObjectURL(anchor.href);}, 250 );}
+                    }, 66);
+                    return true;
+                }
+                // handle non-a[download] safari as best we can:
+                if(/(Version)\/(\d+)\.(\d+)(?:\.(\d+))?.*Safari\//.test(navigator.userAgent)) {
+                    if(/^data:/.test(url))	url="data:"+url.replace(/^data:([\w\/\-\+]+)/, defaultMime);
+                    if(!window.open(url)){ // popup blocked, offer direct download:
+                        if(confirm("Displaying New Document\n\nUse Save As... to download, then click back to return to this page.")){ location.href=url; }
+                    }
+                    return true;
+                }
+                //do iframe dataURL download (old ch+FF):
+                var f = document.createElement("iframe");
+                document.body.appendChild(f);
+                if(!winMode && /^data:/.test(url)){ // force a mime that will download:
+                    url="data:"+url.replace(/^data:([\w\/\-\+]+)/, defaultMime);
+                }
+                f.src=url;
+                setTimeout(function(){ document.body.removeChild(f); }, 333);
+            };
+
     xepOnline.IE = function() {
         var ua = window.navigator.userAgent;
         var msie = ua.indexOf('MSIE ');
@@ -367,7 +447,7 @@
                      var processed = false;
                      var span_before = jQuery('<span>');
                      var parentStyle = xepOnline.Formatter.getRealStyle(jQuery(elem).parent()[0], xepOnline.Formatter.fo_attributes, null);
-                     xepOnline.Formatter.copyComputedStyle(elem, span_before[0], parentStyle, xepOnline.Formatter.fo_attributes, ":before");    
+                     xepOnline.Formatter.copyComputedStyle(elem, span_before[0], parentStyle, xepOnline.Formatter.fo_attributes, ":before");
                      before_text.forEach(function (part){
                          if (part == "")
                             processed = true;       
@@ -728,7 +808,7 @@
            xep: 'application/xep',
            png: 'image/png'
         },
-        /* options    
+        /* options
             {
                 pageWidth: "8.5in",                 // reserved for the FO region-body (next 7)
                 pageHeight: "11in", 
@@ -740,12 +820,12 @@
                 pageMediaResource: "name_of_css_stylesheet",
                 mimeType: ("application/pdf<default>"|"image/svg+xml"),
                 render: ("none"|"newwin<default>"|embed"|"download<default IE>"),
-                cssStyle: {                            // puts css style attributes on the root, ex. fontSize:14px
+                cssStyle: {                         // puts css style attributes on the root, ex. fontSize:14px
                             cssStyleName: 'value', ...
                         },
-                foStyle: {                            // puts fo style attributes on the root, ex. fontSize:14px
+                foStyle: {                          // puts fo style attributes on the root, ex. fontSize:14px
                             foStyleName: 'value', ...
-                        }            
+                        }			
             }
         */
         layer: false,
@@ -778,7 +858,7 @@
                xepOnline.Formatter.__container = xepOnline.Formatter.getFOContainer(xepOnline.Formatter.__elm, options);
 
                 jQuery('#' + ElementID).after(jQuery(xepOnline.Formatter.__container));
-                jQuery(xepOnline.Formatter.__clone).appendTo(jQuery(xepOnline.Formatter.__container).children(1));        
+                jQuery(xepOnline.Formatter.__clone).appendTo(jQuery(xepOnline.Formatter.__container).children(1));
 
                xepOnline.Formatter.togglePrintMediaStyle();
                xepOnline.Formatter.flattenStyle(jQuery(xepOnline.Formatter.__container)[0], options);
@@ -794,7 +874,10 @@
             }
             if(options.render === 'base64') {
                 return utf8ToBase64(xepOnline.Formatter.entity_declaration + current_stylesheet + printcopy);
-            }    
+            }
+            if(options.render === 'downloadimages') {
+                xepOnline.Formatter.__container.attr('data-xeponline-download-pending', 'true');
+            }
             // fix IE double xmlns declerations in SVG
             if(xepOnline.IE()) {
                 printcopy = xepOnline.Formatter.cleanSVGDeclarations(printcopy);
@@ -815,7 +898,7 @@
                 {
                     // switch render to download if blob undefined
                     if(e.message === 'Blob undefined') {
-                        options.render = 'download';                    
+                        options.render = 'download';
                     } else {
                         throw e;
                     }
@@ -824,7 +907,7 @@
             // set temp mimetype for display
             current_mimetype = options.mimeType;
             if(options.render === 'download') {
-                jQuery('body').append('<form style="width:0px; height:0px; overflow:hidden" enctype=\'multipart/form-data\' id=\'temp_post\' method=\'POST\' action=\'' + xepOnline.Formatter.xep_chandra_service_AS_PDF + '\'></form>');        
+                jQuery('body').append('<form style="width:0px; height:0px; overflow:hidden" enctype=\'multipart/form-data\' id=\'temp_post\' method=\'POST\' action=\'' + xepOnline.Formatter.xep_chandra_service_AS_PDF + '\'></form>');
                 jQuery('#temp_post').append('<input type=\'hidden\' name=\'mimetype\' value=\'' + options.mimeType + '\'/>');
                 jQuery('#temp_post').append('<input type=\'hidden\' name=\'filename\' value=\'' + options.filename + '\'/>');
                 jQuery('#temp_post').append('<input type=\'hidden\' name=\'xml\' value=\'' + xepOnline.Formatter.getFormTextData(printcopy) + '\'/>');
@@ -845,6 +928,7 @@
         </fairy:format> \
     </SOAP-ENV:Body> \
 </SOAP-ENV:Envelope>';
+
                 jQuery.ajax({
                 url: productServiceUrl,
                 type: "POST",
@@ -865,7 +949,7 @@
                 });
             }
             return false; 
-        },    
+        },
 
         Format: function(ElementID, options) {
             jQuery(document).trigger( "xepOnlineStatus", ["Started"]);
@@ -884,7 +968,7 @@
         Clear: function() {
             if(jQuery(xepOnline.Formatter.__container).length===0 || 
                 jQuery(xepOnline.Formatter.__container).attr('data-xeponline-embed-pending') === 'true')
-                return;            
+                return;
 
             jQuery(xepOnline.Formatter.__container).remove();
             xepOnline.Formatter.togglePrintMediaStyle();
@@ -900,7 +984,7 @@
             objbuilder += ('" type="application/pdf" />');
             objbuilder += ('</object>');
 
-            if(jQuery(xepOnline.Formatter.__container).attr('data-xeponline-embed-pending') === 'true') {            
+            if(jQuery(xepOnline.Formatter.__container).attr('data-xeponline-embed-pending') === 'true') {
                 jQuery(xepOnline.Formatter.__elm).html(objbuilder);
                 jQuery(xepOnline.Formatter.__elm).css({'height': xepOnline.DEFAULTS.pageHeight });
                 jQuery(xepOnline.Formatter.__container).remove();
@@ -990,14 +1074,23 @@
                  });
              }
              else {
-                     var win = window.open("","_blank","titlebar=yes");
-                     win.document.title = "XEPOnline Result";
-                     win.document.write('<html><head>');
-                     win.document.write('</head><body height="100%"><div id="target" style="height:100%;overflow-y:auto">');
-                     jQuery.each(Pages,function(index,value){
-                         win.document.write('<img style="border:1px solid black" src="data:' + current_mimetype + ';base64,' + jQuery(value).text() + '"/>');
-                     });
-                     win.document.write('</div></body></html>');             
+                    if(jQuery(xepOnline.Formatter.__container).attr('data-xeponline-download-pending') === 'true'){
+                       jQuery.each(Pages,function(index,value){
+                          var blob = base64toBlob(jQuery(value).text(),current_mimetype,512);
+                          var fileName = options.filename === undefined ? 'Page_' + index : options.filename + '_' + index;
+                          saver(URL.createObjectURL(blob),true, fileName + '.' + current_mimetype.substr(current_mimetype.length - 3), current_mimetype);
+                       });
+                     }
+                     else {
+                         var win = window.open("","_blank","titlebar=yes");
+                         win.document.title = "XEPOnline Result";
+                         win.document.write('<html><head>');
+                         win.document.write('</head><body height="100%"><div id="target" style="height:100%;overflow-y:auto">');
+                         jQuery.each(Pages,function(index,value){
+                             win.document.write('<img style="border:1px solid black" src="data:' + current_mimetype + ';base64,' + jQuery(value).text() + '"/>');
+                         });
+                         win.document.write('</div></body></html>');	
+                     }
              }
         },
         __postBackFailure: function (request, status, error){
