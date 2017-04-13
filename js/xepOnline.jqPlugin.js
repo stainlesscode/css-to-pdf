@@ -179,6 +179,86 @@ window.Unibabel = {
 , base64ToArr: base64ToBuffer
 };
 
+// Blob construction for download
+function base64toBlob(base64Data, contentType, sliceSize) {
+    var byteCharacters,
+        byteArray,
+        byteNumbers,
+        blobData,
+        blob;
+    contentType = contentType || '';
+    byteCharacters = atob(base64Data);
+    // Get blob data sliced or not
+    blobData = sliceSize ? getBlobDataSliced() : getBlobDataAtOnce();
+    blob = new Blob(blobData, { type: contentType });
+    return blob;
+    /*
+     * Get blob data in one slice.
+     * => Fast in IE on new Blob(...)
+     */
+    function getBlobDataAtOnce() {
+        byteNumbers = new Array(byteCharacters.length);
+        for (var i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        byteArray = new Uint8Array(byteNumbers);
+        return [byteArray];
+    }
+    /*
+     * Get blob data in multiple slices.
+     * => Slow in IE on new Blob(...)
+     */
+    function getBlobDataSliced() {
+        var slice,
+            byteArrays = [];
+        for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+            slice = byteCharacters.slice(offset, offset + sliceSize);
+            byteNumbers = new Array(slice.length);
+            for (var i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
+            }
+            byteArray = new Uint8Array(byteNumbers);
+            // Add slice
+            byteArrays.push(byteArray);
+        }
+        return byteArrays;
+    }
+};
+
+		function saver(url, winMode, fileName, defaultMime){
+		    var anchor = document.createElement("a");
+			if ('download' in anchor) { //html5 A[download]
+				anchor.href = url;
+				anchor.setAttribute("download", fileName);
+				anchor.className = "download-js-link";
+				anchor.innerHTML = "downloading...";
+				anchor.style.display = "none";
+				document.body.appendChild(anchor);
+				setTimeout(function() {
+					anchor.click();
+					document.body.removeChild(anchor);
+					if(winMode===true){setTimeout(function(){ self.URL.revokeObjectURL(anchor.href);}, 250 );}
+				}, 66);
+				return true;
+			}
+			// handle non-a[download] safari as best we can:
+			if(/(Version)\/(\d+)\.(\d+)(?:\.(\d+))?.*Safari\//.test(navigator.userAgent)) {
+				if(/^data:/.test(url))	url="data:"+url.replace(/^data:([\w\/\-\+]+)/, defaultMime);
+				if(!window.open(url)){ // popup blocked, offer direct download:
+					if(confirm("Displaying New Document\n\nUse Save As... to download, then click back to return to this page.")){ location.href=url; }
+				}
+				return true;
+			}
+			//do iframe dataURL download (old ch+FF):
+			var f = document.createElement("iframe");
+			document.body.appendChild(f);
+			if(!winMode && /^data:/.test(url)){ // force a mime that will download:
+				url="data:"+url.replace(/^data:([\w\/\-\+]+)/, defaultMime);
+			}
+			f.src=url;
+			setTimeout(function(){ document.body.removeChild(f); }, 333);
+		};
+
 xepOnline.IE = function() {
 	var ua = window.navigator.userAgent;
 	var msie = ua.indexOf('MSIE ');
@@ -741,6 +821,9 @@ xepOnline.Formatter = {
 		if(options.render === 'base64') {
 			return utf8ToBase64(xepOnline.Formatter.entity_declaration + current_stylesheet + printcopy);
 		}	
+		if(options.render === 'downloadimages') {
+			xepOnline.Formatter.__container.attr('data-xeponline-download-pending', 'true');
+		}
 		// fix IE double xmlns declerations in SVG
 		if(xepOnline.IE()) {
 			printcopy = xepOnline.Formatter.cleanSVGDeclarations(printcopy);
@@ -936,14 +1019,23 @@ xepOnline.Formatter = {
 			 });
 	     }
 	     else {
-                 var win = window.open("","_blank","titlebar=yes");
-			     win.document.title = "XEPOnline Result";
-			     win.document.write('<html><head>');
-			     win.document.write('</head><body height="100%"><div id="target" style="height:100%;overflow-y:auto">');
-			     jQuery.each(Pages,function(index,value){
-			         win.document.write('<img style="border:1px solid black" src="data:' + current_mimetype + ';base64,' + jQuery(value).text() + '"/>');
-			     });
-			     win.document.write('</div></body></html>');	         
+	            if(jQuery(xepOnline.Formatter.__container).attr('data-xeponline-download-pending') === 'true'){
+	               jQuery.each(Pages,function(index,value){
+			          var blob = base64toBlob(jQuery(value).text(),current_mimetype,512);
+			          var fileName = options.filename === undefined ? 'Page_' + index : options.filename + '_' + index;
+	                  saver(URL.createObjectURL(blob),true, fileName + '.' + current_mimetype.substr(current_mimetype.length - 3), current_mimetype);
+			       });
+	             }
+	             else {
+	                 var win = window.open("","_blank","titlebar=yes");
+			         win.document.title = "XEPOnline Result";
+			         win.document.write('<html><head>');
+			         win.document.write('</head><body height="100%"><div id="target" style="height:100%;overflow-y:auto">');
+			         jQuery.each(Pages,function(index,value){
+			             win.document.write('<img style="border:1px solid black" src="data:' + current_mimetype + ';base64,' + jQuery(value).text() + '"/>');
+			         });
+			         win.document.write('</div></body></html>');	
+	             }
 	     }
 	},
 	__postBackFailure: function (request, status, error){
