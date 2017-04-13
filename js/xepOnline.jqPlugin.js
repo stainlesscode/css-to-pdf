@@ -792,13 +792,13 @@
 
             return builder += (data || '');
         },
-        xep_chandra_service: 'http://xep.cloudformatter.com/Chandra.svc/genpackage',
-        xep_chandra_service_AS_PDF: 'http://xep.cloudformatter.com/Chandra.svc/genfile',
-        xep_chandra_service_page_images: 'http://xep.cloudformatter.com/Chandra.svc/genpageimages',
-        entity_declaration:'<!DOCTYPE div [  <!ENTITY % winansi SYSTEM "http://xep.cloudformatter.com/doc/XSL/winansi.xml">  %winansi;]>',
-        xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://xep.cloudformatter.com/doc/XSL/xeponline-fo-translate-2.xsl"?>',
-        svg_xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://xep.cloudformatter.com/doc/XSL/xeponline-svg-translate.xsl"?>',
-        src_type: { xml: 'text/xml'},
+        xep_chandra_service: 'http://stainlesscode.cloudformatter.com/Chandra.svc/genpackage',
+	    xep_chandra_service_AS_PDF: 'http://stainlesscode.cloudformatter.com/Chandra.svc/genfile',
+	    xep_chandra_service_page_images: 'http://stainlesscode.cloudformatter.com/Chandra.svc/genpageimages',
+	    entity_declaration:'<!DOCTYPE div [  <!ENTITY % winansi SYSTEM "http://stainlesscode.cloudformatter.com/doc/XSL/winansi.xml">  %winansi;]>',
+	    xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://stainlesscode.cloudformatter.com/doc/XSL/xeponline-fo-translate-2.xsl"?>',
+	    svg_xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://stainlesscode.cloudformatter.com/doc/XSL/xeponline-svg-translate.xsl"?>',
+	    src_type: { xml: 'text/xml'},
         mime_type: { 
            pdf: 'application/pdf', 
            svg: 'image/svg+xml', 
