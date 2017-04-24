@@ -659,13 +659,25 @@ xepOnline.Formatter = {
 
 		return builder += (data || '');
 	},
-	xep_chandra_service: 'http://xep.cloudformatter.com/Chandra.svc/genpackage',
-	xep_chandra_service_AS_PDF: 'http://xep.cloudformatter.com/Chandra.svc/genfile',
-	xep_chandra_service_page_images: 'http://xep.cloudformatter.com/Chandra.svc/genpageimages',
-	entity_declaration:'<!DOCTYPE div [  <!ENTITY % winansi SYSTEM "http://xep.cloudformatter.com/doc/XSL/winansi.xml">  %winansi;]>',
-	xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://xep.cloudformatter.com/doc/XSL/xeponline-fo-translate-2.xsl"?>',
-	svg_xsl_stylesheet_declaration: '<?xml-stylesheet type="text/xsl" href="http://xep.cloudformatter.com/doc/XSL/xeponline-svg-translate.xsl"?>',
-	src_type: { xml: 'text/xml'},
+    //options set using setServiceUrl
+	xep_chandra_service: '',
+	xep_chandra_service_AS_PDF: '',
+	xep_chandra_service_page_images: '',
+	entity_declaration: '',
+	xsl_stylesheet_declaration: '',
+	svg_xsl_stylesheet_declaration: '',
+    setServiceUrl: function (options) {
+        //get service url (default to free service)
+        var url = options && options.xepServiceUrl ? options.xepServiceUrl : 'http://xep.cloudformatter.com';
+        //set url on Formatter object
+        xepOnline.Formatter.xep_chandra_service = url + '/Chandra.svc/genpackage';
+        xepOnline.Formatter.xep_chandra_service_AS_PDF = url + '/Chandra.svc/genfile';
+        xepOnline.Formatter.xep_chandra_service_page_images = url + '/Chandra.svc/genpageimages';
+        xepOnline.Formatter.entity_declaration = '<!DOCTYPE div [  <!ENTITY % winansi SYSTEM "' + url + '/doc/XSL/winansi.xml">  %winansi;]>';
+        xepOnline.Formatter.xsl_stylesheet_declaration = '<?xml-stylesheet type="text/xsl" href="' + url + '/doc/XSL/xeponline-fo-translate-2.xsl"?>';
+        xepOnline.Formatter.svg_xsl_stylesheet_declaration = '<?xml-stylesheet type="text/xsl" href="' + url + '/doc/XSL/xeponline-svg-translate.xsl"?>';
+    },
+    src_type: { xml: 'text/xml'},
 	mime_type: { 
 	   pdf: 'application/pdf', 
 	   svg: 'image/svg+xml', 
@@ -692,7 +704,8 @@ xepOnline.Formatter = {
 					},
 			foStyle: {							// puts fo style attributes on the root, ex. fontSize:14px
 						foStyleName: 'value', ...
-					}			
+					},
+            xepServiceUrl: "http://xep.cloudformatter.com"  //allows user to easily switch to an alternate XEP service
 		}
 	*/
 	__format: function(ElementIDs, options) {
@@ -703,6 +716,9 @@ xepOnline.Formatter = {
 		options.resolution = (options.resolution === undefined) ? '120' : options.resolution;
 		options.processPseudoElem = (options.processPseudoElem === undefined) ? 'true' : options.processPseudoElem;
 		
+        //Update service url properties on Formatter object
+        xepOnline.Formatter.setServiceUrl(options);
+        
 		//Record the height of the target
 		current_height = jQuery('#' + ElementIDs[0]).height();
 		
@@ -955,3 +971,6 @@ xepOnline.Formatter = {
 	}
 
 }
+
+//set default service urls on Formatter object
+xepOnline.Formatter.setServiceUrl();
